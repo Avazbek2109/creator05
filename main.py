@@ -7,7 +7,7 @@ import pytz
 from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes
 
-# Render portini tinglash uchun soxta server
+# Render portini tinglash uchun soxta server (Timed Out xatosini oldini oladi)
 class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         self.send_response(200)
@@ -58,7 +58,7 @@ async def send_daily_message(context: ContextTypes.DEFAULT_TYPE) -> None:
 
         message = (
             f"Xayrli kun! ☀️\n\n"
-            f"Bugun siz guruhga/loyihaga kelganingizga {days_count}-kun bo'ldi!\n"
+            f"Bugun siz guruhga/loyihaga kelganingizga **{days_count}-kun** bo'ldi!\n"
             f"Kuningiz unumli o'tsin!"
         )
         await context.bot.send_message(chat_id=chat_id, text=message, parse_mode="Markdown")
@@ -69,7 +69,8 @@ def schedule_daily_notification(context: ContextTypes.DEFAULT_TYPE, chat_id: int
     for job in current_jobs:
         job.schedule_removal()
 
-    notification_time = time(hour=9, minute=0, second=0, tzinfo=TIMEZONE)
+    # Xabar har kuni Toshkent vaqti bilan soat 10:00 da yuboriladi
+    notification_time = time(hour=10, minute=0, second=0, tzinfo=TIMEZONE)
 
     context.job_queue.run_daily(
         send_daily_message,
@@ -82,12 +83,11 @@ def main() -> None:
     if not TOKEN:
         raise ValueError("BOT_TOKEN muhit o'zgaruvchisi topilmadi!")
 
-    # Web-serverni alohida potokda ishga tushirish
     threading.Thread(target=run_dummy_server, daemon=True).start()
 
     application = Application.builder().token(TOKEN).build()
     application.add_handler(CommandHandler("start", start))
     application.run_polling()
 
-if name == "main":
+if __name__ == "__main__":
     main()
