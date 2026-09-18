@@ -95,6 +95,10 @@ async def handle_response(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     text = update.message.text.strip().lower()
     user = get_user_info(chat_id)
 
+    # Hozirgi vaqt va sana (Toshkent vaqti bilan)
+    now = datetime.now(TIMEZONE)
+    current_time_str = now.strftime("%d.%m.%Y %H:%M")
+
     # HA javobi (Tugma yoki 'h' harfi)
     if text in ["✅ ha (270,000 so'm)", "h", "ha"]:
         user["days"] += 1
@@ -102,7 +106,8 @@ async def handle_response(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 
         msg = (
             f"✅ **Qabul qilindi!**\n\n"
-            f"Bugun siz ishdasiz (+{DAILY_EARNING:,} so'm qo'shildi).\n\n"
+            f"📅 **Sana va vaqt:** `{current_time_str}`\n"
+            f"📌 **Holat:** Ishdaziz (+{DAILY_EARNING:,} so'm qo'shildi)\n\n"
             f"📊 Jami kelgan kunlar: **{user['days']} kun**\n"
             f"💰 Jami jamg'arma: **{user['total_earned']:,} so'm**"
         )
@@ -112,7 +117,8 @@ async def handle_response(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     elif text in ["❌ yo'q", "y", "yo'q", "yoq"]:
         msg = (
             f"❌ **Qabul qilindi.**\n\n"
-            f"Bugun kelmadingiz deb belgilandi.\n\n"
+            f"📅 **Sana va vaqt:** `{current_time_str}`\n"
+            f"📌 **Holat:** Kelmadingiz deb belgilandi\n\n"
             f"📊 Jami kelgan kunlar: **{user['days']} kun**\n"
             f"💰 Jami jamg'arma: **{user['total_earned']:,} so'm**"
         )
