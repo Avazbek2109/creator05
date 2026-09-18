@@ -1,9 +1,23 @@
 import logging
 import os
+import threading
+from http.server import HTTPServer, BaseHTTPRequestHandler
 from datetime import datetime, time
 import pytz
 from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes
+
+# Render portini tinglash uchun soxta server
+class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.end_headers()
+        self.wfile.write(b"Bot ishlamoqda!")
+
+def run_dummy_server():
+    port = int(os.environ.get("PORT", 8080))
+    server = HTTPServer(("0.0.0.0", port), SimpleHTTPRequestHandler)
+    server.serve_forever()
 
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
@@ -13,7 +27,6 @@ TOKEN = os.environ.get("BOT_TOKEN", "")
 TIMEZONE = pytz.timezone("Asia/Tashkent")
 
 user_data = {}
-
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     chat_id = update.effective_chat.id
@@ -34,7 +47,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     schedule_daily_notification(context, chat_id)
     await update.message.reply_text(text)
 
-
 async def send_daily_message(context: ContextTypes.DEFAULT_TYPE) -> None:
     job = context.job
     chat_id = job.chat_id
@@ -51,7 +63,6 @@ async def send_daily_message(context: ContextTypes.DEFAULT_TYPE) -> None:
         )
         await context.bot.send_message(chat_id=chat_id, text=message, parse_mode="Markdown")
 
-
 def schedule_daily_notification(context: ContextTypes.DEFAULT_TYPE, chat_id: int) -> None:
     job_name = str(chat_id)
     current_jobs = context.job_queue.get_jobs_by_name(job_name)
@@ -67,15 +78,16 @@ def schedule_daily_notification(context: ContextTypes.DEFAULT_TYPE, chat_id: int
         name=job_name
     )
 
-
 def main() -> None:
     if not TOKEN:
         raise ValueError("BOT_TOKEN muhit o'zgaruvchisi topilmadi!")
 
+    # Web-serverni alohida potokda ishga tushirish
+    threading.Thread(target=run_dummy_server, daemon=True).start()
+
     application = Application.builder().token(TOKEN).build()
     application.add_handler(CommandHandler("start", start))
     application.run_polling()
-
 
 if __name__ == "__main__":
     main()
