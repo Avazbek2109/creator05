@@ -5,24 +5,17 @@ import pytz
 from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes
 
-# Logging sozlamasi
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
 )
 
-# Tokenni muhit o'zgaruvchisidan olish (Render/GitHub Secrets uchun)
-TOKEN = os.environ.get("BOT_TOKEN", "BU_YERGA_TELEGRAM_BOT_TOKENINGIZNI_YOZING")
-
-# Vaqt zonasi (O'zbekiston vaqti)
+TOKEN = os.environ.get("BOT_TOKEN", "")
 TIMEZONE = pytz.timezone("Asia/Tashkent")
 
-# Foydalanuvchilar ma'lumotlarini saqlash (oddiy lug'at)
-# Katta loyihalar uchun ma'lumotlar bazasi (DB) ishlatish tavsiya etiladi.
 user_data = {}
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """/start buyrug'i berilganda ishlaydi."""
     chat_id = update.effective_chat.id
     today = datetime.now(TIMEZONE).date()
 
@@ -38,14 +31,11 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         days_count = (today - joined_date).days + 1
         text = f"Siz allaqachon ro'yxatdan o'tgansiz!\nBugun sizning {days_count}-kuningiz."
 
-    # Har kuni avtomatik xabar yuborish vazifasini sozlash
     schedule_daily_notification(context, chat_id)
-
     await update.message.reply_text(text)
 
 
 async def send_daily_message(context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Har kuni yuboriladigan xabar funksiyasi."""
     job = context.job
     chat_id = job.chat_id
 
@@ -63,15 +53,11 @@ async def send_daily_message(context: ContextTypes.DEFAULT_TYPE) -> None:
 
 
 def schedule_daily_notification(context: ContextTypes.DEFAULT_TYPE, chat_id: int) -> None:
-    """Vazifani har kunlik vaqtga rejalashtirish."""
     job_name = str(chat_id)
-
-    # Eski job bo'lsa o'chirish
     current_jobs = context.job_queue.get_jobs_by_name(job_name)
     for job in current_jobs:
         job.schedule_removal()
 
-    # Har kuni 09:00 da xabar yuborish (vaqtni o'zgartirishingiz mumkin)
     notification_time = time(hour=9, minute=0, second=0, tzinfo=TIMEZONE)
 
     context.job_queue.run_daily(
@@ -83,16 +69,13 @@ def schedule_daily_notification(context: ContextTypes.DEFAULT_TYPE, chat_id: int
 
 
 def main() -> None:
-    """Botni ishga tushirish."""
+    if not TOKEN:
+        raise ValueError("BOT_TOKEN muhit o'zgaruvchisi topilmadi!")
+
     application = Application.builder().token(TOKEN).build()
-
-    # Buyruqlarni ro'yxatdan o'tkazish
     application.add_handler(CommandHandler("start", start))
-
-    # Botni ishga tushirish
     application.run_polling()
 
 
 if __name__ == "__main__":
     main()
-
