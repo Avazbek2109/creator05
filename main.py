@@ -37,7 +37,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         text = (
             f"Xush kelibsiz! Siz ro'yxatdan o'tdingiz.\n"
             f"Bugun sizning 1-kuningiz ({today.strftime('%d.%m.%Y')}).\n\n"
-            f"Har kuni 09:00 da sizga kunlik hisobot yuborib turaman."
+            f"Har kuni 10:00 da sizga kunlik hisobot yuborib turaman."
         )
     else:
         joined_date = user_data[chat_id]
@@ -58,7 +58,7 @@ async def send_daily_message(context: ContextTypes.DEFAULT_TYPE) -> None:
 
         message = (
             f"Xayrli kun! ☀️\n\n"
-            f"Bugun siz guruhga/loyihaga kelganingizga **{days_count}-kun** bo'ldi!\n"
+            f"Bugun siz guruhga/loyihaga kelganingizga {days_count}-kun bo'ldi!\n"
             f"Kuningiz unumli o'tsin!"
         )
         await context.bot.send_message(chat_id=chat_id, text=message, parse_mode="Markdown")
@@ -89,5 +89,5 @@ def main() -> None:
     application.add_handler(CommandHandler("start", start))
     application.run_polling()
 
-if __name__ == "__main__":
+if name == "main":
     main()
