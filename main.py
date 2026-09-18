@@ -7,16 +7,17 @@ import pytz
 from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes
 
-# Render portini tinglash uchun soxta server (Timed Out xatosini oldini oladi)
-class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
+# Render uxlab qolmasligi uchun kichik HTTP server
+class HealthCheckHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         self.send_response(200)
+        self.send_header("Content-type", "text/html")
         self.end_headers()
-        self.wfile.write(b"Bot ishlamoqda!")
+        self.wfile.write(b"Bot 24/7 ishlamoqda!")
 
-def run_dummy_server():
+def start_health_check_server():
     port = int(os.environ.get("PORT", 8080))
-    server = HTTPServer(("0.0.0.0", port), SimpleHTTPRequestHandler)
+    server = HTTPServer(("0.0.0.0", port), HealthCheckHandler)
     server.serve_forever()
 
 logging.basicConfig(
@@ -44,7 +45,20 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         days_count = (today - joined_date).days + 1
         text = f"Siz allaqachon ro'yxatdan o'tgansiz!\nBugun sizning {days_count}-kuningiz."
 
-    schedule_daily_notification(context, chat_id)
+    job_name = str(chat_id)
+    current_jobs = context.job_queue.get_jobs_by_name(job_name)
+    for job in current_jobs:
+        job.schedule_removal()
+
+    # Har kuni soat 10:00 da xabar yuborish
+    notification_time = time(hour=10, minute=0, second=0, tzinfo=TIMEZONE)
+    context.job_queue.run_daily(
+        send_daily_message,
+        time=notification_time,
+        chat_id=chat_id,
+        name=job_name
+    )
+
     await update.message.reply_text(text)
 
 async def send_daily_message(context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -58,32 +72,16 @@ async def send_daily_message(context: ContextTypes.DEFAULT_TYPE) -> None:
 
         message = (
             f"Xayrli kun! ☀️\n\n"
-            f"Bugun siz guruhga/loyihaga kelganingizga **{days_count}-kun** bo'ldi!\n"
+            f"Bugun siz kelganingizga **{days_count}-kun** bo'ldi!\n"
             f"Kuningiz unumli o'tsin!"
         )
         await context.bot.send_message(chat_id=chat_id, text=message, parse_mode="Markdown")
 
-def schedule_daily_notification(context: ContextTypes.DEFAULT_TYPE, chat_id: int) -> None:
-    job_name = str(chat_id)
-    current_jobs = context.job_queue.get_jobs_by_name(job_name)
-    for job in current_jobs:
-        job.schedule_removal()
-
-    # Xabar har kuni Toshkent vaqti bilan soat 10:00 da yuboriladi
-    notification_time = time(hour=10, minute=0, second=0, tzinfo=TIMEZONE)
-
-    context.job_queue.run_daily(
-        send_daily_message,
-        time=notification_time,
-        chat_id=chat_id,
-        name=job_name
-    )
-
 def main() -> None:
     if not TOKEN:
-        raise ValueError("BOT_TOKEN muhit o'zgaruvchisi topilmadi!")
+        raise ValueError("BOT_TOKEN topilmadi!")
 
-    threading.Thread(target=run_dummy_server, daemon=True).start()
+    threading.Thread(target=start_health_check_server, daemon=True).start()
 
     application = Application.builder().token(TOKEN).build()
     application.add_handler(CommandHandler("start", start))
