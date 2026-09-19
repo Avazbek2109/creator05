@@ -35,18 +35,18 @@ user_data = {}
 def get_user_info(chat_id: int):
     if chat_id not in user_data:
         user_data[chat_id] = {
-            "days": 0,
-            "daily_total": 0,    # Kunlik 270k dan yig'ilgan summa
-            "extra_total": 0,    # Kiritilgan qo'shimcha summalar
-            "history_count": 0
+            "days": 0,           # Ishga kelgan kunlar
+            "daily_total": 0,   # Kunlik 270k dan yig'ilgan summa (1-qism)
+            "extra_total": 0,   # Qo'shimcha kiritilgan summalar (2-qism)
         }
     return user_data[chat_id]
 
-# Yangi klaviaturani yaratish
+# Yangilangan menyu tugmalari
 def get_keyboard():
     keyboard = [
         [KeyboardButton("✅ Ha (270,000 so'm)"), KeyboardButton("❌ Yo'q")],
-        [KeyboardButton("📊 Statistika"), KeyboardButton("🔄 Tozalash")]
+        [KeyboardButton("📊 Statistika 1"), KeyboardButton("📊 Statistika 2")],
+        [KeyboardButton("🔄 Tozalash 1"), KeyboardButton("🔄 Tozalash 2")]
     ]
     return ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
 
@@ -63,11 +63,12 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         f"💡 **Qo'shimcha kiritish qoidasi:**\n"
         f"• `10` -> **10,000 so'm**\n"
         f"• `100` -> **100,000 so'm**\n"
+        f"• `500` -> **500,000 so'm**\n"
         f"• `1000` -> **1,000,000 so'm**\n\n"
-        f"📊 **Hozirgi hisobingiz:**\n"
-        f"▪️ Kelgan kunlaringiz: **{user['days']} kun**\n"
-        f"▪️ Jami jamg'arma: **{total:,} so'm**\n\n"
-        f"Pastdagi tugmalardan foydalanishingiz mumkin:"
+        f"📌 **Bo'limlar:**\n"
+        f"• **Statistika 1 / Tozalash 1:** Kunlik 270,000 so'mlik hisoblar uchun.\n"
+        f"• **Statistika 2 / Tozalash 2:** Qo'shimcha kiritilgan summalar uchun.\n\n"
+        f"💰 **Jami umumiy balans:** **{total:,} so'm**"
     )
     await update.message.reply_text(text, parse_mode="Markdown", reply_markup=get_keyboard())
 
@@ -111,52 +112,59 @@ async def handle_response(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     if text in ["✅ ha (270,000 so'm)", "h", "ha"]:
         user["days"] += 1
         user["daily_total"] += DAILY_EARNING
-        user["history_count"] += 1
         total = user["daily_total"] + user["extra_total"]
 
         msg = (
             f"✅ **Qabul qilindi!**\n\n"
             f"📅 **Sana va vaqt:** `{current_time_str}`\n"
             f"📌 **Holat:** Ishdasiz (+{DAILY_EARNING:,} so'm qo'shildi)\n\n"
-            f"📊 Jami kelgan kunlar: **{user['days']} kun**\n"
-            f"💰 Jami jamg'arma: **{total:,} so'm**"
+            f"📊 Ishga kelgan kunlar: **{user['days']} kun**\n"
+            f"💰 Kunlik ish haqi yig'indisi (1-qism): **{user['daily_total']:,} so'm**\n"
+            f"💵 Jami umumiy balans: **{total:,} so'm**"
         )
         await update.message.reply_text(msg, parse_mode="Markdown", reply_markup=get_keyboard())
 
     # YO'Q javobi (Tugma yoki 'y' harfi)
     elif text in ["❌ yo'q", "y", "yo'q", "yoq"]:
-        user["history_count"] += 1
         total = user["daily_total"] + user["extra_total"]
 
         msg = (
             f"❌ **Qabul qilindi.**\n\n"
             f"📅 **Sana va vaqt:** `{current_time_str}`\n"
             f"📌 **Holat:** Kelmadingiz deb belgilandi\n\n"
-            f"📊 Jami kelgan kunlar: **{user['days']} kun**\n"
-            f"💰 Jami jamg'arma: **{total:,} so'm**"
+            f"📊 Ishga kelgan kunlar: **{user['days']} kun**\n"
+            f"💰 Jami umumiy balans: **{total:,} so'm**"
         )
         await update.message.reply_text(msg, parse_mode="Markdown", reply_markup=get_keyboard())
 
-    # STATISTIKA tugmasi
-    elif text == "📊 statistika":
-        total = user["daily_total"] + user["extra_total"]
+    # STATISTIKA 1 (Faqat kunlik 270,000 so'mlik ish haqilar)
+    elif text == "📊 statistika 1":
         msg = (
-            f"📊 **Umumiy statistika:**\n\n"
+            f"📊 **Statistika 1 (Kunlik ish haqi):**\n\n"
             f"📅 Ishga kelgan kunlar: **{user['days']} kun**\n"
-            f"💵 Kunlik ish haqi yig'indisi: **{user['daily_total']:,} so'm**\n"
-            f"➕ Qo'shimcha kiritilgan summa: **{user['extra_total']:,} so'm**\n"
-            f"----------------------------------------\n"
-            f"💰 **Jami umumiy balans:** **{total:,} so'm**"
+            f"💵 Kunlik ish haqi yig'indisi: **{user['daily_total']:,} so'm**"
         )
         await update.message.reply_text(msg, parse_mode="Markdown", reply_markup=get_keyboard())
 
-    # TOZALASH (RESET) tugmasi
-    elif text in ["🔄 tozalash", "/reset"]:
+    # STATISTIKA 2 (Faqat qo'shimcha kiritilgan summalar)
+    elif text == "📊 statistika 2":
+        msg = (
+            f"📊 **Statistika 2 (Qo'shimcha summalar):**\n\n"
+            f"➕ Qo'shimcha kiritilgan yig'indi: **{user['extra_total']:,} so'm**"
+        )
+        await update.message.reply_text(msg, parse_mode="Markdown", reply_markup=get_keyboard())
+
+    # TOZALASH 1 (Faqat kunlik ish haqini nollash)
+    elif text == "🔄 tozalash 1":
         user["days"] = 0
         user["daily_total"] = 0
+        msg = "🔄 **1-Statistika tozalandi!**\nKunlik kelgan kunlar va 270,000 so'mlik hisoblar 0 ga tushirildi."
+        await update.message.reply_text(msg, parse_mode="Markdown", reply_markup=get_keyboard())
+
+    # TOZALASH 2 (Faqat qo'shimcha kiritilgan summalarni nollash)
+    elif text == "🔄 tozalash 2":
         user["extra_total"] = 0
-        user["history_count"] = 0
-        msg = "🔄 **Barcha kunlar, statistikalar va to'plangan summalaringiz tozalandi! (0 so'm)**"
+        msg = "🔄 **2-Statistika tozalandi!**\nQo'shimcha kiritilgan barcha summalar 0 ga tushirildi."
         await update.message.reply_text(msg, parse_mode="Markdown", reply_markup=get_keyboard())
 
     else:
@@ -165,41 +173,28 @@ async def handle_response(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         if cleaned_text.isdigit():
             val = int(cleaned_text)
             
-            # Agar kiritilgan son 10000 dan kichik bo'lsa (masalan 10, 100, 500, 1000), uni mingga ko'paytiramiz
+            # Agar kiritilgan son 10000 dan kichik bo'lsa, uni mingga ko'paytiramiz (masalan: 10 -> 10,000, 100 -> 100,000)
             if val < 10000:
                 added_amount = val * 1000
             else:
                 added_amount = val
 
             user["extra_total"] += added_amount
-            user["history_count"] += 1
             total = user["daily_total"] + user["extra_total"]
 
             msg = (
                 f"💵 **Qo'shimcha summa qo'shildi!**\n\n"
                 f"📅 **Sana va vaqt:** `{current_time_str}`\n"
                 f"➕ Qo'shildi: **+{added_amount:,} so'm**\n\n"
-                f"💰 **Jami umumiy balans:** **{total:,} so'm**"
+                f"📊 Qo'shimcha yig'indi (2-qism): **{user['extra_total']:,} so'm**\n"
+                f"💰 Jami umumiy balans: **{total:,} so'm**"
             )
             await update.message.reply_text(msg, parse_mode="Markdown", reply_markup=get_keyboard())
         else:
             await update.message.reply_text(
-                "Iltimos, pastdagi tugmalardan foydalaning, **h** / **y** deb yozing yoki summani son ko'rinishida kiriting (masalan: `10`, `100`, `1000`).",
+                "Iltimos, pastdagi tugmalardan foydalaning, **h** / **y** deb yozing yoki summani son ko'rinishida kiriting (masalan: `10`, `100`, `500`).",
                 reply_markup=get_keyboard()
             )
-
-async def reset_data(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    chat_id = update.effective_chat.id
-    user = get_user_info(chat_id)
-    user["days"] = 0
-    user["daily_total"] = 0
-    user["extra_total"] = 0
-    user["history_count"] = 0
-    await update.message.reply_text(
-        "🔄 **Barcha kunlar va to'plangan summalaringiz tozalandi! (0 so'm)**",
-        parse_mode="Markdown",
-        reply_markup=get_keyboard()
-    )
 
 def main() -> None:
     if not TOKEN:
@@ -210,7 +205,6 @@ def main() -> None:
     application = Application.builder().token(TOKEN).build()
     
     application.add_handler(CommandHandler("start", start))
-    application.add_handler(CommandHandler("reset", reset_data))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_response))
 
     application.run_polling()
