@@ -7,7 +7,7 @@ import pytz
 from telegram import Update, ReplyKeyboardMarkup, KeyboardButton
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
 
-# Render serveri uxlab qolmasligi uchun HTTP server
+# Render uxlab qolmasligi uchun HTTP server
 class HealthCheckHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         self.send_response(200)
@@ -37,7 +37,7 @@ def get_user_info(chat_id: int):
         user_data[chat_id] = {
             "days": 0,
             "daily_total": 0,    # Kunlik 270k dan yig'ilgan summa
-            "extra_total": 0,    # 100k, 500k va boshqa kiritilgan summalar
+            "extra_total": 0,    # Kiritilgan qo'shimcha summalar
             "history_count": 0
         }
     return user_data[chat_id]
@@ -60,7 +60,10 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     text = (
         f"Xush kelibsiz! 👋\n\n"
         f"Har kuni soat 09:00 da ishga kelganingizni so'rab turaman.\n\n"
-        f"💡 **Qo'shimcha:** Chatga `100` deb yozsangiz **100,000 so'm**, `500` deb yozsangiz **500,000 so'm** hisobingizga qo'shiladi.\n\n"
+        f"💡 **Qo'shimcha kiritish qoidasi:**\n"
+        f"• `10` -> **10,000 so'm**\n"
+        f"• `100` -> **100,000 so'm**\n"
+        f"• `1000` -> **1,000,000 so'm**\n\n"
         f"📊 **Hozirgi hisobingiz:**\n"
         f"▪️ Kelgan kunlaringiz: **{user['days']} kun**\n"
         f"▪️ Jami jamg'arma: **{total:,} so'm**\n\n"
@@ -157,16 +160,16 @@ async def handle_response(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         await update.message.reply_text(msg, parse_mode="Markdown", reply_markup=get_keyboard())
 
     else:
-        # Sonlarni tekshirish (100 -> 100,000, 500 -> 500,000)
+        # Sonlarni hisoblash mantiqi
         cleaned_text = raw_text.replace(" ", "").replace(",", "")
         if cleaned_text.isdigit():
             val = int(cleaned_text)
-            added_amount = val
             
-            if val == 100:
-                added_amount = 100000
-            elif val == 500:
-                added_amount = 500000
+            # Agar kiritilgan son 10000 dan kichik bo'lsa (masalan 10, 100, 500, 1000), uni mingga ko'paytiramiz
+            if val < 10000:
+                added_amount = val * 1000
+            else:
+                added_amount = val
 
             user["extra_total"] += added_amount
             user["history_count"] += 1
@@ -181,7 +184,7 @@ async def handle_response(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
             await update.message.reply_text(msg, parse_mode="Markdown", reply_markup=get_keyboard())
         else:
             await update.message.reply_text(
-                "Iltimos, pastdagi tugmalardan foydalaning, **h** / **y** deb yozing yoki summani son ko'rinishida kiriting (masalan: `100`, `500`).",
+                "Iltimos, pastdagi tugmalardan foydalaning, **h** / **y** deb yozing yoki summani son ko'rinishida kiriting (masalan: `10`, `100`, `1000`).",
                 reply_markup=get_keyboard()
             )
 
