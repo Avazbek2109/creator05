@@ -43,10 +43,10 @@ def get_user_info(chat_id: int):
         }
     return user_data[chat_id]
 
-# Menyu tugmalari
+# Menyu tugmalari ("Yo'q" tugmasi olib tashlandi)
 def get_keyboard():
     keyboard = [
-        [KeyboardButton("✅ Ha (270,000 so'm)"), KeyboardButton("❌ Yo'q")],
+        [KeyboardButton("✅ Ha (270,000 so'm)")],
         [KeyboardButton("📊 Hisobot 1"), KeyboardButton("📊 Hisobot 2")],
         [KeyboardButton("🔄 Tozalash 1"), KeyboardButton("🔄 Tozalash 2")]
     ]
@@ -85,7 +85,7 @@ async def send_daily_ask(context: ContextTypes.DEFAULT_TYPE) -> None:
     message = (
         "Xayrli tong! ☀️\n\n"
         "**Bugun ishga keldingizmi?**\n\n"
-        "Javob berish uchun pastdagi tugmalarni bosing yoki `h` / `y` deb yuboring."
+        "Javob berish uchun pastdagi tugmani bosing yoki `h` deb yuboring."
     )
     await context.bot.send_message(chat_id=chat_id, text=message, parse_mode="Markdown", reply_markup=get_keyboard())
 
@@ -124,17 +124,6 @@ async def handle_response(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
             f"✅ **Qabul qilindi!**\n\n"
             f"📅 **Sana va vaqt:** `{current_time_str}`\n"
             f"📌 **Holat:** Ishdasiz (+{DAILY_EARNING:,} so'm qo'shildi)\n\n"
-            f"📊 **Hisobot 1 (Kunlik):** {user['days']} kun / {user['daily_total']:,} so'm\n"
-            f"💰 **Jami umumiy balans:** {user['daily_total']:,} so'm"
-        )
-        await update.message.reply_text(msg, parse_mode="Markdown", reply_markup=get_keyboard())
-
-    # YO'Q javobi
-    elif text in ["❌ yo'q", "y", "yo'q", "yoq"]:
-        msg = (
-            f"❌ **Qabul qilindi.**\n\n"
-            f"📅 **Sana va vaqt:** `{current_time_str}`\n"
-            f"📌 **Holat:** Kelmadingiz deb belgilandi\n\n"
             f"📊 **Hisobot 1 (Kunlik):** {user['days']} kun / {user['daily_total']:,} so'm\n"
             f"💰 **Jami umumiy balans:** {user['daily_total']:,} so'm"
         )
@@ -201,7 +190,7 @@ async def handle_response(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
             await update.message.reply_text(msg, parse_mode="Markdown", reply_markup=get_keyboard())
         else:
             await update.message.reply_text(
-                "Iltimos, pastdagi tugmalardan foydalaning, **h** / **y** deb yozing yoki summani son ko'rinishida kiriting (masalan: `10`, `200`, `500`).",
+                "Iltimos, pastdagi tugmalardan foydalaning, **h** deb yozing yoki summani son ko'rinishida kiriting (masalan: `10`, `200`, `500`).",
                 reply_markup=get_keyboard()
             )
 
