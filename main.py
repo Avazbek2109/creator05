@@ -29,15 +29,17 @@ TIMEZONE = pytz.timezone("Asia/Tashkent")
 
 DAILY_EARNING = 270000  # Kunlik ish haqi summasi
 
-# Foydalanuvchilar ma'lumoti
+# Foydalanuvchilar ma'lumoti va amaliyotlar tarixi
 user_data = {}
 
 def get_user_info(chat_id: int):
     if chat_id not in user_data:
         user_data[chat_id] = {
-            "days": 0,           # Ishga kelgan kunlar
-            "daily_total": 0,   # Faqat 270k dan yig'ilgan summa (1-Statistika)
-            "extra_total": 0,   # Faqat 10, 100, 500 va boshqa summalar (2-Statistika)
+            "days": 0,           # Ishga kelgan kunlar soni
+            "daily_total": 0,   # Faqat 270k (Hisobot 1) jami summasi
+            "extra_total": 0,   # Faqat qo'shimcha (Hisobot 2) jami summasi
+            "history_1": [],    # Hisobot 1 uchun kiritilgan sanalar va summalar tarixi
+            "history_2": []     # Hisobot 2 uchun kiritilgan sanalar va summalar tarixi
         }
     return user_data[chat_id]
 
@@ -45,7 +47,7 @@ def get_user_info(chat_id: int):
 def get_keyboard():
     keyboard = [
         [KeyboardButton("✅ Ha (270,000 so'm)"), KeyboardButton("❌ Yo'q")],
-        [KeyboardButton("📊 Statistika 1"), KeyboardButton("📊 Statistika 2")],
+        [KeyboardButton("📊 Hisobot 1"), KeyboardButton("📊 Hisobot 2")],
         [KeyboardButton("🔄 Tozalash 1"), KeyboardButton("🔄 Tozalash 2")]
     ]
     return ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
@@ -69,10 +71,10 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         f"Har kuni soat 09:00 da ishga kelganingizni so'rab turaman.\n\n"
         f"💡 **Qo'shimcha kiritish qoidasi:**\n"
         f"• `10` -> **10,000 so'm**\n"
-        f"• `100` -> **100,000 so'm**\n"
+        f"• `200` -> **200,000 so'm**\n"
         f"• `500` -> **500,000 so'm**\n\n"
-        f"📊 **Statistika 1 balansi:** **{user['daily_total']:,} so'm**\n"
-        f"📊 **Statistika 2 balansi:** **{user['extra_total']:,} so'm**"
+        f"📊 **Hisobot 1 balansi:** **{user['daily_total']:,} so'm**\n"
+        f"📊 **Hisobot 2 balansi:** **{user['extra_total']:,} so'm**"
     )
     await update.message.reply_text(text, parse_mode="Markdown", reply_markup=get_keyboard())
 
@@ -112,16 +114,17 @@ async def handle_response(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     now = datetime.now(TIMEZONE)
     current_time_str = now.strftime("%d.%m.%Y %H:%M")
 
-    # HA javobi (Faqat Statistika 1 hisobiga qo'shiladi va ko'rsatiladi)
+    # HA javobi (Hisobot 1)
     if text in ["✅ ha (270,000 so'm)", "h", "ha"]:
         user["days"] += 1
         user["daily_total"] += DAILY_EARNING
+        user["history_1"].append(f"📅 {current_time_str} — +{DAILY_EARNING:,} so'm")
 
         msg = (
             f"✅ **Qabul qilindi!**\n\n"
             f"📅 **Sana va vaqt:** `{current_time_str}`\n"
             f"📌 **Holat:** Ishdasiz (+{DAILY_EARNING:,} so'm qo'shildi)\n\n"
-            f"📊 **Statistika 1 (Kunlik):** {user['days']} kun / {user['daily_total']:,} so'm\n"
+            f"📊 **Hisobot 1 (Kunlik):** {user['days']} kun / {user['daily_total']:,} so'm\n"
             f"💰 **Jami umumiy balans:** {user['daily_total']:,} so'm"
         )
         await update.message.reply_text(msg, parse_mode="Markdown", reply_markup=get_keyboard())
@@ -132,43 +135,51 @@ async def handle_response(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
             f"❌ **Qabul qilindi.**\n\n"
             f"📅 **Sana va vaqt:** `{current_time_str}`\n"
             f"📌 **Holat:** Kelmadingiz deb belgilandi\n\n"
-            f"📊 **Statistika 1 (Kunlik):** {user['days']} kun / {user['daily_total']:,} so'm\n"
+            f"📊 **Hisobot 1 (Kunlik):** {user['days']} kun / {user['daily_total']:,} so'm\n"
             f"💰 **Jami umumiy balans:** {user['daily_total']:,} so'm"
         )
         await update.message.reply_text(msg, parse_mode="Markdown", reply_markup=get_keyboard())
 
-    # STATISTIKA 1 (Faqat kunlik 270,000 so'mlik ish haqilar)
-    elif text == "📊 statistika 1":
+    # HISOBOT 1 (Kunlik ish haqi ro'yxati va sanalari)
+    elif text == "📊 hisobot 1":
+        history_text = "\n".join(user["history_1"]) if user["history_1"] else "Hali ma'lumot kiritilmagan."
         msg = (
-            f"📊 **Statistika 1 (Faqat kunlik ish haqi):**\n\n"
-            f"📅 Ishga kelgan kunlar: **{user['days']} kun**\n"
-            f"💵 Kunlik yig'ilgan summa: **{user['daily_total']:,} so'm**"
+            f"📊 **Hisobot 1 (Kunlik ish haqi tarixi):**\n\n"
+            f"{history_text}\n\n"
+            f"------------------------------\n"
+            f"📅 Jami kelingan kunlar: **{user['days']} kun**\n"
+            f"💵 Jami kunlik ish haqi: **{user['daily_total']:,} so'm**"
         )
         await update.message.reply_text(msg, parse_mode="Markdown", reply_markup=get_keyboard())
 
-    # STATISTIKA 2 (Faqat alohida kiritilgan summalar)
-    elif text == "📊 statistika 2":
+    # HISOBOT 2 (Qo'shimcha kiritilgan summalar va sanalari)
+    elif text == "📊 hisobot 2":
+        history_text = "\n".join(user["history_2"]) if user["history_2"] else "Hali ma'lumot kiritilmagan."
         msg = (
-            f"📊 **Statistika 2 (Faqat qo'shimcha summalar):**\n\n"
-            f"➕ Qo'shimcha kiritilgan yig'indi: **{user['extra_total']:,} so'm**"
+            f"📊 **Hisobot 2 (Qo'shimcha kiritilganlar tarixi):**\n\n"
+            f"{history_text}\n\n"
+            f"------------------------------\n"
+            f"➕ Jami qo'shimcha yig'indi: **{user['extra_total']:,} so'm**"
         )
         await update.message.reply_text(msg, parse_mode="Markdown", reply_markup=get_keyboard())
 
-    # TOZALASH 1 (Faqat kunlik ish haqini nollash)
+    # TOZALASH 1 (Faqat Hisobot 1 ma'lumotlarini nollash)
     elif text == "🔄 tozalash 1":
         user["days"] = 0
         user["daily_total"] = 0
-        msg = "🔄 **1-Statistika (Kunlik hisoblar) tozalandi!**\n1-Statistika 0 ga tushdi."
+        user["history_1"] = []
+        msg = "🔄 **Hisobot 1 (Kunlik hisoblar) tozalandi!**"
         await update.message.reply_text(msg, parse_mode="Markdown", reply_markup=get_keyboard())
 
-    # TOZALASH 2 (Faqat qo'shimcha kiritilgan summalarni nollash)
+    # TOZALASH 2 (Faqat Hisobot 2 ma'lumotlarini nollash)
     elif text == "🔄 tozalash 2":
         user["extra_total"] = 0
-        msg = "🔄 **2-Statistika (Qo'shimcha summalar) tozalandi!**\n2-Statistika 0 ga tushdi."
+        user["history_2"] = []
+        msg = "🔄 **Hisobot 2 (Qo'shimcha summalar) tozalandi!**"
         await update.message.reply_text(msg, parse_mode="Markdown", reply_markup=get_keyboard())
 
     else:
-        # Sonlarni hisoblash (Faqat Statistika 2 ga qo'shiladi)
+        # Sonlarni hisoblash (Hisobot 2 ga sana va vaqti bilan saqlash)
         cleaned_text = raw_text.replace(" ", "").replace(",", "")
         if cleaned_text.isdigit():
             val = int(cleaned_text)
@@ -179,17 +190,18 @@ async def handle_response(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
                 added_amount = val
 
             user["extra_total"] += added_amount
+            user["history_2"].append(f"📅 {current_time_str} — +{added_amount:,} so'm")
 
             msg = (
                 f"💵 **Qo'shimcha summa qo'shildi!**\n\n"
                 f"📅 **Sana va vaqt:** `{current_time_str}`\n"
                 f"➕ Qo'shildi: **+{added_amount:,} so'm**\n\n"
-                f"📊 **Statistika 2 yig'indisi:** **{user['extra_total']:,} so'm**"
+                f"📊 **Hisobot 2 yig'indisi:** **{user['extra_total']:,} so'm**"
             )
             await update.message.reply_text(msg, parse_mode="Markdown", reply_markup=get_keyboard())
         else:
             await update.message.reply_text(
-                "Iltimos, pastdagi tugmalardan foydalaning, **h** / **y** deb yozing yoki summani son ko'rinishida kiriting (masalan: `10`, `100`, `500`).",
+                "Iltimos, pastdagi tugmalardan foydalaning, **h** / **y** deb yozing yoki summani son ko'rinishida kiriting (masalan: `10`, `200`, `500`).",
                 reply_markup=get_keyboard()
             )
 
@@ -199,7 +211,9 @@ async def reset_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user["days"] = 0
     user["daily_total"] = 0
     user["extra_total"] = 0
-    await update.message.reply_text("🔄 Barcha ma'lumotlar nollantirildi!", reply_markup=get_keyboard())
+    user["history_1"] = []
+    user["history_2"] = []
+    await update.message.reply_text("🔄 Barcha ma'lumotlar va tarixlar tozalandi!", reply_markup=get_keyboard())
 
 def main() -> None:
     if not TOKEN:
