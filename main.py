@@ -4,7 +4,7 @@ import threading
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from datetime import datetime, time
 import pytz
-from telegram import Update, ReplyKeyboardMarkup, KeyboardButton
+from telegram import Update, ReplyKeyboardMarkup, KeyboardButton, BotCommand
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
 
 # Render uxlab qolmasligi uchun HTTP server
@@ -50,13 +50,20 @@ def get_keyboard():
     ]
     return ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
 
+# Bot chap tomondagi "Menu" tugmasiga buyruqlarni qo'shish
+async def post_init(application: Application) -> None:
+    commands = [
+        BotCommand("start", "Botni qayta ishga tushirish"),
+        BotCommand("reset", "Barcha ma'lumotlarni tozalash")
+    ]
+    await application.bot.set_my_commands(commands)
+
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     chat_id = update.effective_chat.id
     user = get_user_info(chat_id)
 
     schedule_daily_notification(context, chat_id)
 
-    total = user["daily_total"] + user["extra_total"]
     text = (
         f"Xush kelibsiz! 👋\n\n"
         f"Har kuni soat 09:00 da ishga kelganingizni so'rab turaman.\n\n"
@@ -64,8 +71,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         f"• `10` -> **10,000 so'm**\n"
         f"• `100` -> **100,000 so'm**\n"
         f"• `500` -> **500,000 so'm**\n\n"
-        f"📌 **Eslatma:** Kiritgan sonlaringiz faqat **Statistika 2**ga qo'shiladi va 1-statistikaga xalaqit bermaydi.\n\n"
-        f"💰 **Jami umumiy balans:** **{total:,} so'm**"
+        f"📊 **Statistika 1 balansi:** **{user['daily_total']:,} so'm**\n"
+        f"📊 **Statistika 2 balansi:** **{user['extra_total']:,} so'm**"
     )
     await update.message.reply_text(text, parse_mode="Markdown", reply_markup=get_keyboard())
 
@@ -105,31 +112,28 @@ async def handle_response(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     now = datetime.now(TIMEZONE)
     current_time_str = now.strftime("%d.%m.%Y %H:%M")
 
-    # HA javobi (Faqat Statistika 1 ga qo'shiladi)
+    # HA javobi (Faqat Statistika 1 hisobiga qo'shiladi va ko'rsatiladi)
     if text in ["✅ ha (270,000 so'm)", "h", "ha"]:
         user["days"] += 1
         user["daily_total"] += DAILY_EARNING
-        total = user["daily_total"] + user["extra_total"]
 
         msg = (
             f"✅ **Qabul qilindi!**\n\n"
             f"📅 **Sana va vaqt:** `{current_time_str}`\n"
             f"📌 **Holat:** Ishdasiz (+{DAILY_EARNING:,} so'm qo'shildi)\n\n"
             f"📊 **Statistika 1 (Kunlik):** {user['days']} kun / {user['daily_total']:,} so'm\n"
-            f"💰 **Jami umumiy balans:** {total:,} so'm"
+            f"💰 **Jami umumiy balans:** {user['daily_total']:,} so'm"
         )
         await update.message.reply_text(msg, parse_mode="Markdown", reply_markup=get_keyboard())
 
     # YO'Q javobi
     elif text in ["❌ yo'q", "y", "yo'q", "yoq"]:
-        total = user["daily_total"] + user["extra_total"]
-
         msg = (
             f"❌ **Qabul qilindi.**\n\n"
             f"📅 **Sana va vaqt:** `{current_time_str}`\n"
             f"📌 **Holat:** Kelmadingiz deb belgilandi\n\n"
             f"📊 **Statistika 1 (Kunlik):** {user['days']} kun / {user['daily_total']:,} so'm\n"
-            f"💰 **Jami umumiy balans:** {total:,} so'm"
+            f"💰 **Jami umumiy balans:** {user['daily_total']:,} so'm"
         )
         await update.message.reply_text(msg, parse_mode="Markdown", reply_markup=get_keyboard())
 
@@ -164,27 +168,23 @@ async def handle_response(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         await update.message.reply_text(msg, parse_mode="Markdown", reply_markup=get_keyboard())
 
     else:
-        # Sonlarni hisoblash (Faqat Statistika 2 ga qo'shiladi!)
+        # Sonlarni hisoblash (Faqat Statistika 2 ga qo'shiladi)
         cleaned_text = raw_text.replace(" ", "").replace(",", "")
         if cleaned_text.isdigit():
             val = int(cleaned_text)
             
-            # 10000 dan kichik sonlar mingga ko'paytiriladi (10 -> 10,000, 100 -> 100,000)
             if val < 10000:
                 added_amount = val * 1000
             else:
                 added_amount = val
 
-            # Faqat extra_total (Statistika 2) ga qo'shish:
             user["extra_total"] += added_amount
-            total = user["daily_total"] + user["extra_total"]
 
             msg = (
                 f"💵 **Qo'shimcha summa qo'shildi!**\n\n"
                 f"📅 **Sana va vaqt:** `{current_time_str}`\n"
                 f"➕ Qo'shildi: **+{added_amount:,} so'm**\n\n"
-                f"📊 **Statistika 2 yig'indisi:** **{user['extra_total']:,} so'm**\n"
-                f"💰 **Jami umumiy balans:** **{total:,} so'm**"
+                f"📊 **Statistika 2 yig'indisi:** **{user['extra_total']:,} so'm**"
             )
             await update.message.reply_text(msg, parse_mode="Markdown", reply_markup=get_keyboard())
         else:
@@ -193,15 +193,24 @@ async def handle_response(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
                 reply_markup=get_keyboard()
             )
 
+async def reset_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    chat_id = update.effective_chat.id
+    user = get_user_info(chat_id)
+    user["days"] = 0
+    user["daily_total"] = 0
+    user["extra_total"] = 0
+    await update.message.reply_text("🔄 Barcha ma'lumotlar nollantirildi!", reply_markup=get_keyboard())
+
 def main() -> None:
     if not TOKEN:
         raise ValueError("BOT_TOKEN topilmadi!")
 
     threading.Thread(target=start_health_check_server, daemon=True).start()
 
-    application = Application.builder().token(TOKEN).build()
+    application = Application.builder().token(TOKEN).post_init(post_init).build()
     
     application.add_handler(CommandHandler("start", start))
+    application.add_handler(CommandHandler("reset", reset_cmd))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_response))
 
     application.run_polling()
